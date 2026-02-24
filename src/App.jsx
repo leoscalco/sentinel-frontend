@@ -11,6 +11,8 @@ import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Onboarding from './pages/Onboarding';
+import Profile from './pages/Profile';
+import NewConsent from './pages/NewConsent';
 
 function App() {
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "mock-client-id.apps.googleusercontent.com";
@@ -39,10 +41,26 @@ function App() {
               } 
             />
             <Route 
+              path="/profile" 
+              element={
+                <ProtectedRoute>
+                  <Profile />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
               path="/dashboard" 
               element={
                 <ProtectedRoute>
                   <Dashboard />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/new-consent" 
+              element={
+                <ProtectedRoute>
+                  <NewConsent />
                 </ProtectedRoute>
               } 
             />
