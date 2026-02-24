@@ -8,6 +8,10 @@ export default {
     extend: {
       colors: {
         brand: {
+          navy: '#081D3B', // Dark Navy Blue (User Request)
+          gray: '#E4E4E4', // Light Gray (User Request)
+          champagne: '#F7E7CE', // Champagne Accent
+          
           50: '#f0f9ff',
           100: '#e0f2fe',
           500: '#0ea5e9',

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Plus, Search, FileText, User, Activity, Loader2, ShieldCheck, Download } from 'lucide-react';
 import api from '../services/api';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 export default function Dashboard() {
   const [consents, setConsents] = useState([]);
@@ -20,15 +21,19 @@ export default function Dashboard() {
   const [generating, setGenerating] = useState(false);
   const [procedures, setProcedures] = useState([]);
 
+  const { user, logout } = useAuth();
+
   useEffect(() => {
-    fetchConsents();
-    fetchProcedures();
-  }, []);
+    if (user?.id) {
+        fetchConsents();
+        fetchProcedures();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   const fetchProcedures = async () => {
     try {
-        const doctorId = import.meta.env.VITE_DOCTOR_ID;
-        const res = await api.get(`/procedures?doctor_id=${doctorId}`);
+        const res = await api.get(`/procedures?doctor_id=${user.id}`);
         setProcedures(res.data);
     } catch (e) {
         console.error("Failed to fetch procedures", e);
@@ -37,9 +42,7 @@ export default function Dashboard() {
 
   const fetchConsents = async () => {
     try {
-      // Use env variable or fallback
-      const doctorId = import.meta.env.VITE_DOCTOR_ID; 
-      const res = await api.get(`/consents?doctor_id=${doctorId}&limit=5`); // Limit to 5 for dashboard
+      const res = await api.get(`/consents?doctor_id=${user.id}&limit=5`); // Limit to 5 for dashboard
       setConsents(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error("Failed to fetch consents", err);
@@ -54,12 +57,11 @@ export default function Dashboard() {
     try {
       await api.post('/consents/generate', {
         doctor: {
-            // Use env or default
-            name: "Dr. House",
-            crm: "12345/SP",
-            email: "house@princeton.edu",
-            address: "Princeton Plainsboro", 
-            phone_24h: "+1 609-555-0100"
+            name: user.name,
+            crm: user.crm,
+            email: user.email || `${user.crm}@exemplo.com`,
+            address: user.address || "Endereço Cadastrado", 
+            phone_24h: user.phone_24h || "+55 00 0000-0000"
         },
         patient: {
             name: formData.patientName,
@@ -114,12 +116,23 @@ export default function Dashboard() {
                 </Link>
             </nav>
         </div>
-        <button 
-            onClick={() => setShowForm(!showForm)}
-            className="bg-brand-600 text-white px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 hover:bg-brand-700 transition-colors shadow-sm shadow-brand-200"
-        >
-            <Plus className="w-4 h-4" /> Novo TCLE
-        </button>
+        <div className="flex items-center gap-4">
+            <span className="text-sm font-medium text-slate-600 mr-2">
+                Olá, {user?.name?.split(' ')[0]}
+            </span>
+            <button 
+                onClick={logout}
+                className="text-sm font-medium text-red-500 hover:text-red-700 transition-colors mr-2"
+            >
+                Sair
+            </button>
+            <button 
+                onClick={() => setShowForm(!showForm)}
+                className="bg-brand-navy text-white px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 hover:bg-blue-900 transition-colors shadow-sm shadow-brand-200"
+            >
+                <Plus className="w-4 h-4" /> Novo TCLE
+            </button>
+        </div>
       </header>
 
       <main className="max-w-5xl mx-auto p-8 space-y-8">

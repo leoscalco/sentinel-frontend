@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import api from '../services/api';
 import { Search, FileText, CheckCircle, Clock, ChevronDown, Check, AlertTriangle, Loader2 } from 'lucide-react';
 import ReviewConsentModal from './ReviewConsentModal';
+import { useAuth } from '../context/AuthContext';
+import { Link } from 'react-router-dom';
 
 export default function Documents() {
   const [activeTab, setActiveTab] = useState('DRAFT'); // DRAFT, PENDING_PATIENT, SIGNED
@@ -11,18 +13,20 @@ export default function Documents() {
   const [selectedConsent, setSelectedConsent] = useState(null);
   const [approving, setApproving] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const { user } = useAuth();
 
   useEffect(() => {
-    fetchConsents();
-  }, [activeTab, search]);
+    if (user?.id) {
+        fetchConsents();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, search, user]);
 
   const fetchConsents = async () => {
     setLoading(true);
     try {
-      const doctorId = import.meta.env.VITE_DOCTOR_ID;
-      
       const params = new URLSearchParams();
-      params.append('doctor_id', doctorId);
+      params.append('doctor_id', user.id);
       
       if (activeTab === 'DRAFT') {
         const statuses = ['DRAFT', 'APPROVED', 'REJECTED', 'AUDITING'];
