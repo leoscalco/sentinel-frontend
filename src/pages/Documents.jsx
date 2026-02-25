@@ -63,9 +63,31 @@ export default function Documents() {
     setApproving(true);
     try {
       // Use dedicated sign/doctor endpoint
-      await api.post(`/consents/${consentId}/sign/doctor`, {});
+      const res = await api.post(`/consents/${consentId}/sign/doctor`, {});
       setIsModalOpen(false);
       fetchConsents(); // Refresh list
+      
+      // Get signature URL and patient phone
+      const consentData = res.data;
+      const baseUrl = window.location.origin;
+      const signatureUrl = `${baseUrl}/sign/${consentId}`;
+      let phone = consentData.patient?.phone || '+34611716226';
+      
+      // Clean phone number for wa.me link
+      phone = phone.replace(/[^0-9]/g, '');
+      if (!phone.startsWith('55') && !phone.startsWith('34')) {
+         // Default to BR if no country code, just as a fallback
+         phone = `55${phone}`;
+      }
+
+      // We use the requested phone for the prompt
+      phone = '34611716226'; 
+
+      const message = `Olá! Aqui está o link para assinar o seu Termo de Consentimento da clínica:\n\n${signatureUrl}`;
+      const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+      
+      window.open(whatsappUrl, '_blank');
+
     } catch (error) {
       console.error("Failed to approve consent", error);
       alert("Erro ao aprovar TCLE");

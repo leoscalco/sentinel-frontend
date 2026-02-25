@@ -34,8 +34,9 @@ export default function Dashboard() {
       'PENDING': { text: 'PENDING', className: 'bg-slate-100 text-slate-500 border-slate-200' },
       'AUDITING': { text: 'EM AUDITORIA', className: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
       'APPROVED': { text: 'APPROVED', className: 'bg-blue-50 text-blue-700 border-blue-200' },
+      'PENDING_PATIENT': { text: 'AG. PACIENTE', className: 'bg-blue-50 text-blue-700 border-blue-200' },
       'REJECTED': { text: 'REJECTED', className: 'bg-red-50 text-red-600 border-red-200' },
-      'SIGNED': { text: 'SIGNED', className: 'bg-emerald-50 text-emerald-600 border-emerald-200' },
+      'SIGNED': { text: 'FINALIZADO', className: 'bg-emerald-50 text-emerald-600 border-emerald-200' },
     };
     const mapped = statusMap[status] || statusMap['DRAFT'];
     return (
