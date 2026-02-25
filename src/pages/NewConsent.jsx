@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { ShieldCheck, Calendar, FileText, CheckCircle2 } from 'lucide-react';
+import { ShieldCheck, Calendar, FileText, CheckCircle2, X } from 'lucide-react';
 import MainLayout from '../components/layout/MainLayout';
 
 export default function NewConsent() {
@@ -23,6 +23,50 @@ export default function NewConsent() {
   const availableConditions = [
     'FUMANTE', 'DIABÉTICO', 'QUELOIDE', 'CARDÍACO', 'ALERGIA'
   ];
+
+  const [noteItems, setNoteItems] = useState([]);
+  const [currentNoteInput, setCurrentNoteInput] = useState('');
+
+  const handleNoteKeyDown = (e) => {
+      if (['Enter', 'Tab', ';'].includes(e.key)) {
+          e.preventDefault();
+          const splitValues = currentNoteInput.split(/[;\n\t]+/).map(s => s.trim()).filter(Boolean);
+          if (splitValues.length > 0 || currentNoteInput.trim() !== '') {
+              const toAdd = splitValues.length > 0 ? splitValues : [currentNoteInput.trim()];
+              const newItems = [...noteItems, ...toAdd];
+              setNoteItems(newItems);
+          }
+          setCurrentNoteInput('');
+      } else if (e.key === 'Backspace' && !currentNoteInput && noteItems.length > 0) {
+          e.preventDefault();
+          const newItems = noteItems.slice(0, -1);
+          setNoteItems(newItems);
+          setCurrentNoteInput(noteItems[noteItems.length - 1]);
+      }
+  };
+
+  const handleNotePaste = (e) => {
+      e.preventDefault();
+      const pastedData = e.clipboardData.getData('text');
+      const splitValues = pastedData.split(/[;\n\t]+/).map(s => s.trim()).filter(Boolean);
+      if (splitValues.length > 0) {
+          const newItems = [...noteItems, ...splitValues];
+          setNoteItems(newItems);
+      }
+  };
+
+  const removeNoteItem = (index) => {
+      const newItems = noteItems.filter((_, i) => i !== index);
+      setNoteItems(newItems);
+  };
+
+  useEffect(() => {
+    // Sync local visual notes items to main formData.
+    // Ensure that it combines arrays uniquely mapped
+    const additional = currentNoteInput.trim() ? [currentNoteInput.trim()] : [];
+    const allNotes = [...noteItems, ...additional];
+    setFormData(prev => ({ ...prev, medicalNote: allNotes.join('\n') }));
+  }, [noteItems, currentNoteInput]);
 
   const fetchProcedures = useCallback(async () => {
     try {
@@ -163,12 +207,35 @@ export default function NewConsent() {
 
                     <div>
                         <label className="block text-xs font-bold tracking-wide text-slate-400 uppercase mb-2">Nota Médica / Evolução</label>
-                        <textarea 
-                            value={formData.medicalNote}
-                            onChange={e => setFormData({...formData, medicalNote: e.target.value})}
-                            className="w-full border-2 border-slate-200 rounded-2xl px-4 py-3 text-sm focus:ring-4 focus:ring-brand-100 focus:border-brand-navy outline-none transition-all placeholder-slate-300 min-h-[120px] resize-none"
-                            placeholder="Descreva as observações clínicas e planos..."
-                        />
+                        <div className="w-full border-2 border-slate-200 rounded-2xl p-3 bg-white focus-within:ring-4 focus-within:ring-brand-100 focus-within:border-brand-navy transition-all min-h-[120px] cursor-text flex flex-wrap gap-2 items-start"
+                             onClick={() => document.getElementById('medicalNoteInput')?.focus()}
+                        >
+                            {noteItems.map((note, index) => (
+                                <div key={index} className="flex items-center gap-1 bg-brand-navy/5 text-brand-navy font-medium text-sm px-3 py-1.5 rounded-lg border border-brand-navy/10 break-words max-w-full">
+                                    <span className="flex-1 min-w-0 break-words">{note}</span>
+                                    <button 
+                                        type="button" 
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            removeNoteItem(index);
+                                        }}
+                                        className="text-brand-navy/50 hover:text-red-500 transition-colors shrink-0"
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            ))}
+                            <input
+                                id="medicalNoteInput"
+                                type="text"
+                                value={currentNoteInput}
+                                onChange={e => setCurrentNoteInput(e.target.value)}
+                                onKeyDown={handleNoteKeyDown}
+                                onPaste={handleNotePaste}
+                                className="flex-1 bg-transparent min-w-[120px] text-sm text-slate-700 outline-none mt-1 placeholder-slate-300"
+                                placeholder={noteItems.length === 0 ? "Descreva e pressione Enter ou ' ; ' para separar..." : ""}
+                            />
+                        </div>
                     </div>
                 </div>
 
@@ -180,12 +247,12 @@ export default function NewConsent() {
                             {procedures.length === 0 ? (
                                 <p className="text-sm text-slate-400 p-4 border-2 border-dashed border-slate-200 rounded-xl text-center">Nenhum procedimento encontrado. Configure seu perfil primeiro.</p>
                             ) : procedures.map(proc => {
-                                const isSelected = formData.procedure === proc.name;
+                                const isSelected = formData.procedure === proc.type;
                                 return (
                                     <button
                                         key={proc.id}
                                         type="button"
-                                        onClick={() => setFormData({...formData, procedure: proc.name})}
+                                        onClick={() => setFormData({...formData, procedure: proc.type})}
                                         className={`w-full flex items-center justify-between p-4 rounded-2xl border-2 transition-all text-left ${
                                             isSelected
                                             ? 'border-brand-navy bg-brand-champagne/30 font-bold text-brand-navy shadow-sm'
