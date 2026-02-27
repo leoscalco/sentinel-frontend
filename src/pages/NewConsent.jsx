@@ -15,6 +15,7 @@ export default function NewConsent() {
     patientName: '',
     patientDocument: '',
     patientBirthDate: '',
+    patientPhone: '',
     medicalNote: '',
     procedure: '',
     conditions: []
@@ -116,6 +117,7 @@ export default function NewConsent() {
             name: formData.patientName,
             document_id: formData.patientDocument,
             birth_date: formData.patientBirthDate ? new Date(formData.patientBirthDate).toISOString() : null,
+            phone_number: formData.patientPhone,
             conditions: formData.conditions
         },
         medical_note: formData.medicalNote,
@@ -169,6 +171,8 @@ export default function NewConsent() {
                                     required
                                 />
                             </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-xs font-bold tracking-wide text-slate-400 uppercase mb-2">Data Nascimento</label>
                                 <div className="relative">
@@ -181,6 +185,17 @@ export default function NewConsent() {
                                     />
                                     <Calendar className="w-4 h-4 absolute right-4 top-3.5 text-slate-400 pointer-events-none" />
                                 </div>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold tracking-wide text-slate-400 uppercase mb-2">Telefone (WhatsApp)</label>
+                                <input 
+                                    type="text" 
+                                    value={formData.patientPhone}
+                                    onChange={e => setFormData({...formData, patientPhone: e.target.value})}
+                                    className="w-full border-2 border-slate-200 rounded-2xl px-4 py-3 text-sm focus:ring-4 focus:ring-brand-100 focus:border-brand-navy outline-none transition-all placeholder-slate-300"
+                                    placeholder="+5511999999999"
+                                    required
+                                />
                             </div>
                         </div>
                     </div>

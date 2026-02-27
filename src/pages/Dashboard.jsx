@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Search, FileText, User, Activity, ShieldCheck, ChevronRight } from 'lucide-react';
+import { Plus, Search, FileText, User, Activity, ShieldCheck, ChevronRight, Loader2, Send } from 'lucide-react';
 import api from '../services/api';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -21,6 +21,37 @@ export default function Dashboard() {
       setLoading(false);
     }
   }, [user.id]);
+
+  const [resendingPin, setResendingPin] = useState(null);
+
+  const handleResendPin = async (e, consentId) => {
+    e.stopPropagation();
+    
+    setResendingPin(consentId);
+    try {
+      const res = await api.post(`/consents/${consentId}/send-pin`, {});
+      const pin = res.data.pin;
+      
+      let baseUrl = window.location.origin;
+      if (baseUrl.includes('localhost')) {
+          baseUrl = import.meta.env.VITE_PUBLIC_URL || 'https://juan-uncorned-janay.ngrok-free.dev';
+      }
+      const signatureUrl = `${baseUrl}/sign/${consentId}`;
+      const phone = '34611716226';
+      
+      const message = `Olá! Aqui está o link para assinar o seu Termo de Consentimento da clínica:\n\n${signatureUrl}\n\nO seu PIN de acesso é: ${pin}`;
+      const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+      
+      window.open(whatsappUrl, '_blank');
+
+      // alert("PIN reenviado com sucesso via WhatsApp!");
+    } catch (error) {
+      console.error("Failed to resend PIN", error);
+      alert("Erro ao reenviar PIN");
+    } finally {
+      setResendingPin(null);
+    }
+  };
 
   useEffect(() => {
     if (user?.id) {
@@ -87,6 +118,16 @@ export default function Dashboard() {
                             </div>
                             
                             <div className="flex items-center gap-4">
+                                {consent.status === 'PENDING_PATIENT' && (
+                                    <button 
+                                        onClick={(e) => handleResendPin(e, consent.id)}
+                                        disabled={resendingPin === consent.id}
+                                        className="hidden md:flex px-4 py-2 text-white bg-blue-600 rounded-lg text-xs font-bold tracking-wide uppercase items-center gap-2 shadow-sm hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50"
+                                    >
+                                        {resendingPin === consent.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                                        Reenviar Documento
+                                    </button>
+                                )}
                                 {getStatusBadge(consent.status)}
                                 <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-brand-navy transition-colors" />
                             </div>

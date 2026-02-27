@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import api from '../services/api';
-import { Search, FileText, CheckCircle, Clock, ChevronDown, Check, AlertTriangle, Loader2 } from 'lucide-react';
+import { Search, FileText, CheckCircle, Clock, ChevronDown, Check, AlertTriangle, Loader2, Send } from 'lucide-react';
 import ReviewConsentModal from './ReviewConsentModal';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
@@ -14,7 +14,35 @@ export default function Documents() {
   const [selectedConsent, setSelectedConsent] = useState(null);
   const [approving, setApproving] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [resendingPin, setResendingPin] = useState(null);
   const { user } = useAuth();
+
+  const handleResendPin = async (consentId) => {
+    setResendingPin(consentId);
+    try {
+      const res = await api.post(`/consents/${consentId}/send-pin`, {});
+      const pin = res.data.pin;
+      
+      let baseUrl = window.location.origin;
+      if (baseUrl.includes('localhost')) {
+          baseUrl = import.meta.env.VITE_PUBLIC_URL || 'https://juan-uncorned-janay.ngrok-free.dev';
+      }
+      const signatureUrl = `${baseUrl}/sign/${consentId}`;
+      const phone = '34611716226';
+      
+      const message = `Olá! Aqui está o link para assinar o seu Termo de Consentimento da clínica:\n\n${signatureUrl}\n\nO seu PIN de acesso é: ${pin}`;
+      const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+      
+      window.open(whatsappUrl, '_blank');
+
+      // alert("PIN reenviado com sucesso via WhatsApp!");
+    } catch (error) {
+      console.error("Failed to resend PIN", error);
+      alert("Erro ao reenviar PIN");
+    } finally {
+      setResendingPin(null);
+    }
+  };
 
   useEffect(() => {
     if (user?.id) {
@@ -62,32 +90,22 @@ export default function Documents() {
   const handleApprove = async (consentId) => {
     setApproving(true);
     try {
-      // Use dedicated sign/doctor endpoint
       const res = await api.post(`/consents/${consentId}/sign/doctor`, {});
       setIsModalOpen(false);
       fetchConsents(); // Refresh list
-      
-      // Get signature URL and patient phone
-      const consentData = res.data;
-      const baseUrl = window.location.origin;
-      const signatureUrl = `${baseUrl}/sign/${consentId}`;
-      let phone = consentData.patient?.phone || '+34611716226';
-      
-      // Clean phone number for wa.me link
-      phone = phone.replace(/[^0-9]/g, '');
-      if (!phone.startsWith('55') && !phone.startsWith('34')) {
-         // Default to BR if no country code, just as a fallback
-         phone = `55${phone}`;
+
+      const pin = res.data.patient_pin;
+      let baseUrl = window.location.origin;
+      if (baseUrl.includes('localhost')) {
+          baseUrl = import.meta.env.VITE_PUBLIC_URL || 'https://juan-uncorned-janay.ngrok-free.dev';
       }
-
-      // We use the requested phone for the prompt
-      phone = '34611716226'; 
-
-      const message = `Olá! Aqui está o link para assinar o seu Termo de Consentimento da clínica:\n\n${signatureUrl}`;
+      const signatureUrl = `${baseUrl}/sign/${consentId}`;
+      const phone = '34611716226';
+      
+      const message = `Olá! Aqui está o link para assinar o seu Termo de Consentimento da clínica:\n\n${signatureUrl}\n\nO seu PIN de acesso é: ${pin}`;
       const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
       
       window.open(whatsappUrl, '_blank');
-
     } catch (error) {
       console.error("Failed to approve consent", error);
       alert("Erro ao aprovar TCLE");
@@ -199,10 +217,20 @@ export default function Documents() {
                                     </button>
                                 )}
                                 {consent.status === 'PENDING_PATIENT' && (
-                                    <span className="px-5 py-2.5 text-blue-700 bg-blue-50 border border-blue-100 rounded-xl text-xs font-bold tracking-wide uppercase flex items-center gap-2">
-                                        <Clock className="w-4 h-4" />
-                                        Aguardando
-                                    </span>
+                                    <>
+                                        <span className="px-5 py-2.5 text-blue-700 bg-blue-50 border border-blue-100 rounded-xl text-xs font-bold tracking-wide uppercase flex items-center gap-2">
+                                            <Clock className="w-4 h-4" />
+                                            Aguardando
+                                        </span>
+                                        <button 
+                                            onClick={(e) => { e.stopPropagation(); handleResendPin(consent.id); }}
+                                            disabled={resendingPin === consent.id}
+                                            className="px-5 py-2.5 text-white bg-blue-600 rounded-xl text-xs font-bold tracking-wide uppercase flex items-center gap-2 shadow-sm hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50"
+                                        >
+                                            {resendingPin === consent.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                                            Reenviar Documento
+                                        </button>
+                                    </>
                                 )}
                                 {consent.status === 'SIGNED' && (
                                     <button className="px-5 py-2.5 text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-xl text-xs font-bold tracking-wide uppercase flex items-center gap-2 hover:bg-emerald-100 transition-colors">

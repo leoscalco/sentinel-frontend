@@ -34,6 +34,7 @@ export default function ReviewConsentModal({ isOpen, onClose, consent, onApprove
                 name: localConsent.patient.name,
                 document_id: localConsent.patient.document_id,
                 birth_date: localConsent.patient.birth_date,
+                phone_number: localConsent.patient.phone_number || '',
                 conditions: localConsent.patient.conditions || []
             },
             medical_note: localConsent.anamnesis_data?.medical_note || null,

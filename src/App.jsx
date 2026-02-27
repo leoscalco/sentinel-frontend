@@ -6,6 +6,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Dashboard from './pages/Dashboard';
 import ConsentView from './pages/ConsentView';
 import SignaturePortal from './pages/SignaturePortal';
+import PatientSign from './pages/PatientSign';
 import Documents from './pages/Documents';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
@@ -28,6 +29,7 @@ function App() {
             <Route path="/register" element={<Register />} />
             
             {/* Signature & Audit (Kept Public for Patients/Auditors) */}
+            <Route path="/sign/:id" element={<PatientSign />} />
             <Route path="/verify/:id" element={<SignaturePortal />} />
             <Route path="/audit/:id" element={<ConsentView />} />
 
