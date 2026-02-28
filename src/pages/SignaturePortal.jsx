@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { CheckCircle, AlertCircle, Clock, ShieldCheck, FileSignature, Loader2, Lock } from 'lucide-react';
+import { CheckCircle, AlertCircle, Clock, ShieldCheck, FileSignature, Loader2, Lock, Download } from 'lucide-react';
 import SignatureCanvas from '../components/ui/SignatureCanvas';
 import api from '../services/api';
 import { useSignature } from '../hooks/useSignature';
@@ -16,6 +16,27 @@ export default function SignaturePortal() {
   const [timeLeft, setTimeLeft] = useState(5); // Fast demo time. Use 15-30s in prod.
   const [signing, setSigning] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+
+  const handleDownloadPdf = async () => {
+    setDownloadingPdf(true);
+    try {
+      const res = await api.post(`/consents/${id}/pdf`, {}, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `TCLE_${id}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Failed to download PDF', error);
+      alert('Erro ao gerar PDF.');
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
 
   const sigPad = useRef({});
   const { metadata, captureEvidence } = useSignature();
@@ -116,6 +137,14 @@ export default function SignaturePortal() {
                {new Date().toLocaleString()}
            </div>
         </div>
+        <button
+            onClick={handleDownloadPdf}
+            disabled={downloadingPdf}
+            className="w-full mt-6 py-4 bg-brand-navy text-brand-champagne rounded-2xl font-black text-sm tracking-widest uppercase flex items-center justify-center gap-2 hover:bg-brand-navy/90 transition-colors disabled:opacity-50 shadow-lg shadow-brand-navy/20"
+        >
+            {downloadingPdf ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
+            Baixar PDF do TCLE
+        </button>
       </div>
     </div>
   );

@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import api from '../services/api';
-import { Search, FileText, CheckCircle, Clock, ChevronDown, Check, AlertTriangle, Loader2, Send } from 'lucide-react';
+import { Search, FileText, CheckCircle, Clock, ChevronDown, Check, AlertTriangle, Loader2, Send, Eye, Download } from 'lucide-react';
 import ReviewConsentModal from './ReviewConsentModal';
 import { useAuth } from '../context/AuthContext';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import MainLayout from '../components/layout/MainLayout';
 
 export default function Documents() {
@@ -16,6 +16,29 @@ export default function Documents() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [resendingPin, setResendingPin] = useState(null);
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const [downloadingPdf, setDownloadingPdf] = useState(null);
+
+  const handleDownloadPdf = async (e, consentId) => {
+    e.stopPropagation();
+    setDownloadingPdf(consentId);
+    try {
+      const res = await api.post(`/consents/${consentId}/pdf`, {}, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `TCLE_${consentId}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Failed to download PDF', error);
+      alert('Erro ao gerar PDF.');
+    } finally {
+      setDownloadingPdf(null);
+    }
+  };
 
   const handleResendPin = async (consentId) => {
     setResendingPin(consentId);
@@ -189,7 +212,7 @@ export default function Documents() {
                                 </div>
                             </div>
 
-                            <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-3">
                                 {['DRAFT', 'APPROVED', 'REJECTED', 'AUDITING'].includes(consent.status) && (
                                     <div className={`px-3 py-1.5 rounded-full text-[10px] font-black tracking-widest uppercase border flex items-center gap-2
                                         ${consent.status === 'APPROVED' ? 'bg-teal-50 text-teal-700 border-teal-200' :
@@ -233,11 +256,30 @@ export default function Documents() {
                                     </>
                                 )}
                                 {consent.status === 'SIGNED' && (
-                                    <button className="px-5 py-2.5 text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-xl text-xs font-bold tracking-wide uppercase flex items-center gap-2 hover:bg-emerald-100 transition-colors">
+                                    <span className="px-5 py-2.5 text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-xl text-xs font-bold tracking-wide uppercase flex items-center gap-2">
                                         <Check className="w-4 h-4" />
                                         Assinado
-                                    </button>
+                                    </span>
                                 )}
+
+                                {/* Ver Detalhes — always visible */}
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); navigate(`/audit/${consent.id}`); }}
+                                    className="px-4 py-2.5 text-slate-600 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold tracking-wide uppercase flex items-center gap-2 hover:bg-slate-100 transition-colors"
+                                >
+                                    <Eye className="w-4 h-4" />
+                                    Detalhes
+                                </button>
+
+                                {/* Download PDF — always visible */}
+                                <button
+                                    onClick={(e) => handleDownloadPdf(e, consent.id)}
+                                    disabled={downloadingPdf === consent.id}
+                                    className="px-4 py-2.5 text-brand-navy bg-brand-champagne/30 border border-brand-champagne rounded-xl text-xs font-bold tracking-wide uppercase flex items-center gap-2 hover:bg-brand-champagne/50 transition-colors disabled:opacity-50"
+                                >
+                                    {downloadingPdf === consent.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                                    PDF
+                                </button>
                             </div>
                         </div>
                     ))}

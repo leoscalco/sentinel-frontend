@@ -1,13 +1,34 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { FileText, ShieldCheck, Activity, Clock, CheckCircle, XCircle, Fingerprint, Loader2 } from 'lucide-react';
+import { FileText, ShieldCheck, Activity, Clock, CheckCircle, XCircle, Fingerprint, Loader2, Download } from 'lucide-react';
 import api from '../services/api';
 
 export default function ConsentView() {
   const { id } = useParams();
   const [consent, setConsent] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+
+  const handleDownloadPdf = async () => {
+    setDownloadingPdf(true);
+    try {
+      const res = await api.post(`/consents/${id}/pdf`, {}, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `TCLE_${id}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Failed to download PDF', error);
+      alert('Erro ao gerar PDF.');
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
 
   useEffect(() => {
     fetchConsent();
@@ -60,9 +81,19 @@ export default function ConsentView() {
                 <p className="text-brand-champagne/60 font-mono text-[11px] tracking-wide">ID: {consent.id}</p>
             </div>
         </div>
-        <span className={`px-4 py-2 rounded-xl font-black text-[10px] tracking-widest uppercase border ${statusInfo.bg} ${statusInfo.text_color} ${statusInfo.border}`}>
-            {statusInfo.text}
-        </span>
+        <div className="flex items-center gap-3">
+            <button
+                onClick={handleDownloadPdf}
+                disabled={downloadingPdf}
+                className="px-5 py-2.5 bg-brand-champagne text-brand-navy rounded-xl text-xs font-black tracking-widest uppercase flex items-center gap-2 hover:bg-brand-champagne/80 transition-colors disabled:opacity-50 shadow-sm"
+            >
+                {downloadingPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                Baixar PDF
+            </button>
+            <span className={`px-4 py-2 rounded-xl font-black text-[10px] tracking-widest uppercase border ${statusInfo.bg} ${statusInfo.text_color} ${statusInfo.border}`}>
+                {statusInfo.text}
+            </span>
+        </div>
       </header>
 
       <main className="max-w-5xl mx-auto p-6 md:p-8 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
