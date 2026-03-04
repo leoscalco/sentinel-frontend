@@ -1,15 +1,22 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { ShieldCheck, Calendar, FileText, CheckCircle2, X, ClipboardList, Pill, Stethoscope, ChevronDown, ChevronUp } from 'lucide-react';
+import { ShieldCheck, Calendar, FileText, CheckCircle2, X, ClipboardList, Pill, Stethoscope, ChevronDown, ChevronUp, Search, Loader2 } from 'lucide-react';
 import MainLayout from '../components/layout/MainLayout';
 
 export default function NewConsent() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const [generating, setGenerating] = useState(false);
   const [procedures, setProcedures] = useState([]);
+
+  // Patient search
+  const [patientSearchResults, setPatientSearchResults] = useState([]);
+  const [showPatientDropdown, setShowPatientDropdown] = useState(false);
+  const [searchingPatient, setSearchingPatient] = useState(false);
+  const [selectedPatientId, setSelectedPatientId] = useState(null);
   
   const [formData, setFormData] = useState({
     patientName: '',
@@ -99,6 +106,65 @@ export default function NewConsent() {
   const removeNoteItem = (index) => {
       const newItems = noteItems.filter((_, i) => i !== index);
       setNoteItems(newItems);
+  };
+
+  // ── Patient search autocomplete ──
+  useEffect(() => {
+    const name = formData.patientName;
+    if (selectedPatientId || !name || name.length < 2) {
+      setPatientSearchResults([]);
+      setShowPatientDropdown(false);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setSearchingPatient(true);
+      try {
+        const res = await api.get(`/patients/search?q=${encodeURIComponent(name)}`);
+        setPatientSearchResults(res.data || []);
+        setShowPatientDropdown(true);
+      } catch { setPatientSearchResults([]); }
+      finally { setSearchingPatient(false); }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [formData.patientName, selectedPatientId]);
+
+  // ── Pre-fill from URL patient_id ──
+  useEffect(() => {
+    const pid = searchParams.get('patient_id');
+    if (!pid) return;
+    (async () => {
+      try {
+        const res = await api.get(`/patients/${pid}`);
+        const p = res.data;
+        setSelectedPatientId(p.id);
+        setFormData(prev => ({
+          ...prev,
+          patientName: p.name || '',
+          patientDocument: p.document_id || '',
+          patientBirthDate: p.birth_date ? new Date(p.birth_date).toISOString().split('T')[0] : '',
+          patientPhone: p.phone_number || '',
+        }));
+      } catch (err) { console.error('Failed to load patient', err); }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const selectPatient = (p) => {
+    setSelectedPatientId(p.id);
+    setFormData(prev => ({
+      ...prev,
+      patientName: p.name,
+      patientDocument: p.document_id,
+      patientPhone: p.phone_number || prev.patientPhone,
+      patientBirthDate: p.birth_date ? new Date(p.birth_date).toISOString().split('T')[0] : prev.patientBirthDate,
+    }));
+    setShowPatientDropdown(false);
+    setPatientSearchResults([]);
+  };
+
+  const clearSelectedPatient = () => {
+    setSelectedPatientId(null);
+    setFormData(prev => ({ ...prev, patientName: '', patientDocument: '', patientBirthDate: '', patientPhone: '' }));
   };
 
   useEffect(() => {
@@ -242,14 +308,47 @@ export default function NewConsent() {
                     <div className="space-y-4">
                         <div>
                             <label className="block text-xs font-bold tracking-wide text-slate-400 uppercase mb-2">Nome do Paciente</label>
-                            <input 
-                                type="text" 
-                                required
-                                value={formData.patientName}
-                                onChange={e => setFormData({...formData, patientName: e.target.value})}
-                                className="w-full border-2 border-slate-200 rounded-2xl px-4 py-3 text-sm focus:ring-4 focus:ring-brand-100 focus:border-brand-navy outline-none transition-all placeholder-slate-300"
-                                placeholder="Ex: João da Silva"
-                            />
+                            <div className="relative">
+                              <input 
+                                  type="text" 
+                                  required
+                                  value={formData.patientName}
+                                  onChange={e => {
+                                    if (selectedPatientId) clearSelectedPatient();
+                                    setFormData({...formData, patientName: e.target.value});
+                                  }}
+                                  onFocus={() => patientSearchResults.length > 0 && setShowPatientDropdown(true)}
+                                  className={`w-full border-2 rounded-2xl px-4 py-3 text-sm focus:ring-4 focus:ring-brand-100 focus:border-brand-navy outline-none transition-all placeholder-slate-300 ${selectedPatientId ? 'border-brand-champagne bg-brand-champagne/5' : 'border-slate-200'}`}
+                                  placeholder="Buscar ou cadastrar paciente..."
+                              />
+                              {searchingPatient && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-slate-300" />}
+                              {selectedPatientId && (
+                                <button type="button" onClick={clearSelectedPatient} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-red-500">
+                                  <X className="w-4 h-4" />
+                                </button>
+                              )}
+
+                              {/* Autocomplete dropdown */}
+                              {showPatientDropdown && patientSearchResults.length > 0 && (
+                                <div className="absolute z-20 top-full mt-1 w-full bg-white border-2 border-slate-200 rounded-2xl shadow-lg max-h-48 overflow-y-auto">
+                                  {patientSearchResults.map(p => (
+                                    <button
+                                      key={p.id}
+                                      type="button"
+                                      onClick={() => selectPatient(p)}
+                                      className="w-full text-left px-4 py-3 hover:bg-brand-champagne/10 transition-colors flex items-center gap-3 border-b border-slate-50 last:border-0"
+                                    >
+                                      <Search className="w-3.5 h-3.5 text-slate-300 shrink-0" />
+                                      <div>
+                                        <span className="font-bold text-sm text-brand-navy">{p.name}</span>
+                                        <span className="text-xs text-slate-400 ml-2">CPF: {p.document_id}</span>
+                                      </div>
+                                    </button>
+                                  ))}
+                                  <div className="px-4 py-2 text-[10px] font-bold tracking-wider text-slate-400 uppercase bg-slate-50 rounded-b-2xl">ou continue digitando para cadastrar novo</div>
+                                </div>
+                              )}
+                            </div>
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
