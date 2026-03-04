@@ -66,6 +66,11 @@ export default function SignaturePortal() {
       const res = await api.get(`/consents/${id}`, {
           headers: { Authorization: `Bearer ${token}` }
       });
+      // If already signed, redirect to audit page
+      if (res.data.status === 'SIGNED') {
+        navigate(`/audit/${id}`, { replace: true });
+        return;
+      }
       setConsent(res.data);
     } catch (err) {
       setError('Documento não encontrado ou inválido.');

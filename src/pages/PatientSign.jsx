@@ -24,7 +24,9 @@ export default function PatientSign() {
       const res = await api.get(`/consents/${id}/basic-info`);
       setBasicInfo(res.data);
       if (res.data.status === 'SIGNED') {
-          setError('Este documento já foi assinado e finalizado.');
+          // Already signed — redirect to audit page
+          navigate(`/audit/${id}`, { replace: true });
+          return;
       }
     } catch (err) {
       setError('Documento não encontrado ou indisponível.');

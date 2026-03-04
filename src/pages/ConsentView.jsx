@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { FileText, ShieldCheck, Activity, Clock, CheckCircle, XCircle, Fingerprint, Loader2, Download, User, Stethoscope, CalendarDays, Timer, Globe, Monitor, Lock, Zap, Send } from 'lucide-react';
+import { FileText, ShieldCheck, Activity, Clock, CheckCircle, XCircle, Fingerprint, Loader2, Download, User, Stethoscope, CalendarDays, Timer, Globe, Monitor, Lock, Zap, Send, ShieldAlert } from 'lucide-react';
 import api from '../services/api';
 
 export default function ConsentView() {
@@ -9,6 +9,8 @@ export default function ConsentView() {
   const [consent, setConsent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [verification, setVerification] = useState(null);
 
   const handleDownloadPdf = async () => {
     setDownloadingPdf(true);
@@ -273,6 +275,90 @@ export default function ConsentView() {
                     </p>
                 </div>
             </div>
+
+            {/* ── Botão de Verificação ── */}
+            <div className="mt-6">
+                <button
+                    onClick={async () => {
+                        setVerifying(true);
+                        try {
+                            const res = await api.get(`/consents/${id}/verify`);
+                            setVerification(res.data);
+                        } catch (err) {
+                            console.error(err);
+                            alert('Erro ao verificar integridade.');
+                        } finally {
+                            setVerifying(false);
+                        }
+                    }}
+                    disabled={verifying}
+                    className="w-full py-4 bg-brand-navy text-brand-champagne rounded-2xl font-black text-sm tracking-widest uppercase flex items-center justify-center gap-3 hover:bg-brand-navy/90 transition-colors disabled:opacity-50 shadow-lg shadow-brand-navy/10"
+                >
+                    {verifying ? <Loader2 className="w-5 h-5 animate-spin" /> : <ShieldAlert className="w-5 h-5" />}
+                    Verificar Integridade do Documento
+                </button>
+            </div>
+
+            {/* ── Resultado da Verificação ── */}
+            {verification && (
+                <div className={`mt-6 p-6 rounded-2xl border-2 animate-in fade-in slide-in-from-bottom-4 duration-300 ${
+                    verification.verified 
+                        ? 'bg-emerald-50 border-emerald-300' 
+                        : 'bg-amber-50 border-amber-300'
+                }`}>
+                    <div className="flex items-center gap-3 mb-5">
+                        {verification.verified 
+                            ? <CheckCircle className="w-7 h-7 text-emerald-600" />
+                            : <ShieldAlert className="w-7 h-7 text-amber-600" />
+                        }
+                        <div>
+                            <h3 className={`font-black text-lg ${verification.verified ? 'text-emerald-800' : 'text-amber-800'}`}>
+                                {verification.verified ? 'Documento Autêntico e Íntegro' : 'Verificação Incompleta'}
+                            </h3>
+                            <p className={`text-xs ${verification.verified ? 'text-emerald-600' : 'text-amber-600'}`}>
+                                {verification.verified ? 'Todas as verificações foram aprovadas.' : 'Algumas verificações ainda estão pendentes.'}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {[
+                            { label: 'Hash SHA-256 Válido', value: verification.hash_valid, detail: verification.hash_valid ? 'O conteúdo não foi alterado' : 'Hash difere do original — possível alteração' },
+                            { label: 'Selo de Integridade', value: verification.seal_present, detail: verification.seal_present ? 'HMAC-SHA256 presente' : 'Selo não gerado — assinatura pendente' },
+                            { label: 'Assinatura do Médico', value: verification.doctor_signed, detail: verification.doctor_signature_date ? new Date(verification.doctor_signature_date).toLocaleString('pt-BR') : 'Pendente' },
+                            { label: 'Assinatura do Paciente', value: verification.patient_signed, detail: verification.patient_signature_date ? new Date(verification.patient_signature_date).toLocaleString('pt-BR') : 'Pendente' },
+                            { label: 'Auditoria IA Aprovada', value: verification.audit_passed, detail: verification.audit_passed ? 'Todos os pilares conformes' : 'Pilares não conformes encontrados' },
+                            { label: 'Logs de Assinatura', value: verification.signature_logs_count >= 2, detail: `${verification.signature_logs_count} registro(s) encontrado(s)` },
+                        ].map((check, i) => (
+                            <div key={i} className={`flex items-center gap-3 p-3 rounded-xl border ${
+                                check.value ? 'bg-white border-emerald-200' : 'bg-white border-amber-200'
+                            }`}>
+                                {check.value 
+                                    ? <CheckCircle className="w-5 h-5 text-emerald-500 shrink-0" />
+                                    : <XCircle className="w-5 h-5 text-amber-500 shrink-0" />
+                                }
+                                <div>
+                                    <p className="text-xs font-black text-brand-navy">{check.label}</p>
+                                    <p className="text-[10px] text-slate-500">{check.detail}</p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {verification.hash_stored && (
+                        <div className="mt-4 pt-4 border-t border-slate-200/50 space-y-2">
+                            <div className="flex items-start gap-2">
+                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest shrink-0 pt-0.5">Hash Armazenado:</span>
+                                <code className="text-[9px] text-brand-navy font-mono break-all">{verification.hash_stored}</code>
+                            </div>
+                            <div className="flex items-start gap-2">
+                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest shrink-0 pt-0.5">Hash Recalculado:</span>
+                                <code className={`text-[9px] font-mono break-all ${verification.hash_valid ? 'text-emerald-700' : 'text-red-600'}`}>{verification.hash_recalculated}</code>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
 
         {/* ═══ REGISTROS DE ASSINATURA (LOGS) ═══ */}
@@ -397,10 +483,16 @@ export default function ConsentView() {
                 <Clock className="w-5 h-5 text-brand-champagne" /> Auditoria de Conformidade (IA)
             </h2>
             <div className="space-y-0 divide-y divide-slate-100">
-                {consent.audit_results?.map((audit, i) => (
+                {consent.audit_results?.map((audit, i) => {
+                    // Auto-resolve "Assinatura" pillar if both signatures exist
+                    const isSignaturePillar = audit.pillar?.toLowerCase().includes('assinatura');
+                    const bothSigned = consent.doctor_signature_date && consent.patient_signature_date;
+                    const isResolved = (audit.passed || audit.is_compliant) || (isSignaturePillar && bothSigned);
+
+                    return (
                     <div key={i} className="flex gap-4 py-4 text-sm hover:bg-slate-50 transition-colors px-3 rounded-xl">
                         <div className="pt-0.5">
-                            {audit.passed || audit.is_compliant ? (
+                            {isResolved ? (
                                 <CheckCircle className="w-5 h-5 text-emerald-500" />
                             ) : (
                                 <XCircle className="w-5 h-5 text-red-500" />
@@ -409,23 +501,34 @@ export default function ConsentView() {
                         <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">
                                 <span className={`font-black text-[10px] tracking-widest px-3 py-1 rounded-full uppercase ${
-                                    (audit.passed || audit.is_compliant) 
+                                    isResolved
                                         ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
                                         : 'bg-red-50 text-red-700 border border-red-200'
                                 }`}>
-                                    {(audit.passed || audit.is_compliant) ? 'CONFORME' : 'NÃO CONFORME'}
+                                    {isResolved ? 'CONFORME' : 'NÃO CONFORME'}
                                 </span>
                                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                                     {audit.pillar}
                                 </span>
+                                {isSignaturePillar && bothSigned && !(audit.passed || audit.is_compliant) && (
+                                    <span className="text-[10px] font-black tracking-widest text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 uppercase">
+                                        Resolvido
+                                    </span>
+                                )}
                             </div>
-                            <p className="text-slate-600 leading-relaxed">{audit.finding || audit.notes}</p>
-                            {audit.suggestion && (
+                            <p className="text-slate-600 leading-relaxed">
+                                {isSignaturePillar && bothSigned && !(audit.passed || audit.is_compliant)
+                                    ? 'Ambas as assinaturas (médico e paciente) foram registradas com sucesso.'
+                                    : (audit.finding || audit.notes)
+                                }
+                            </p>
+                            {audit.suggestion && !isResolved && (
                                 <p className="text-xs text-amber-600 mt-1 italic">💡 {audit.suggestion}</p>
                             )}
                         </div>
                     </div>
-                ))}
+                    );
+                })}
             </div>
              {!consent.audit_results?.length && (
                 <div className="text-center py-10 text-slate-400 italic bg-slate-50 rounded-2xl">
