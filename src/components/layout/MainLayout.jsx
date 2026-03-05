@@ -2,7 +2,7 @@ import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { LayoutDashboard, FileText, User, LogOut, ShieldCheck, Plus } from 'lucide-react';
 
-export default function MainLayout({ title, subtitle, showNewTcle = false, children }) {
+export default function MainLayout({ title, subtitle, showNewTcle = false, fullWidth = false, children }) {
   const { logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -83,8 +83,8 @@ export default function MainLayout({ title, subtitle, showNewTcle = false, child
           </header>
 
           {/* Scrolling Content Area */}
-          <main className="flex-1 overflow-y-auto p-4 sm:p-8 w-full bg-slate-50">
-              <div className="max-w-6xl mx-auto w-full">
+          <main className={`flex-1 overflow-y-auto p-4 sm:p-8 w-full bg-slate-50 ${fullWidth ? '' : 'max-w-6xl mx-auto'}`}>
+              <div className="w-full h-full">
                 {children || <Outlet />}
               </div>
           </main>

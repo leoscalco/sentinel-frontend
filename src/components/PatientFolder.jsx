@@ -1,10 +1,67 @@
 import { useState, useEffect } from 'react';
-import { X, FileText, Plus, ShieldCheck, ShieldAlert, ShieldX, Loader2, ChevronRight, User, Phone, Calendar } from 'lucide-react';
+import { X, FileText, Plus, ShieldCheck, ShieldAlert, ShieldX, Loader2, ChevronRight, User, Phone, Calendar, Send, Eye, Download, RotateCcw } from 'lucide-react';
 import api from '../services/api';
 
 export default function PatientFolder({ patient, onClose, onNewTcle, onViewConsent }) {
   const [detail, setDetail] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [resendingPin, setResendingPin] = useState(null);
+
+  const handleResendPin = async (e, consentId) => {
+    e?.stopPropagation();
+    setResendingPin(consentId);
+    try {
+      const res = await api.post(`/consents/${consentId}/send-pin`, {});
+      const pin = res.data.pin;
+      let baseUrl = window.location.origin;
+      if (baseUrl.includes('localhost')) baseUrl = import.meta.env.VITE_PUBLIC_URL || 'https://juan-uncorned-janay.ngrok-free.dev';
+      const signatureUrl = `${baseUrl}/sign/${consentId}`;
+      const phone = '34611716226';
+      const message = `Olá! Aqui está o link para assinar o seu Termo de Consentimento da clínica:\n\n${signatureUrl}\n\nO seu PIN de acesso é: ${pin}`;
+      window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
+    } catch { alert("Erro ao reenviar PIN"); }
+    finally { setResendingPin(null); }
+  };
+
+  const handleDownload = async (e, consentId) => {
+    e?.stopPropagation();
+    try {
+      const response = await api.get(`/consents/${consentId}/pdf`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const a = document.createElement('a'); a.href = url; a.download = `TCLE_${consentId}.pdf`; a.click();
+      window.URL.revokeObjectURL(url);
+    } catch { alert("Erro ao baixar PDF"); }
+  };
+
+  const ActionButtons = ({ item }) => {
+    const st = item.status;
+    const btnCls = `p-1.5 rounded-lg transition-all p-1`;
+    const sz = 'w-3.5 h-3.5';
+    return (
+      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        {(st === 'PENDING_PATIENT' || st === 'APPROVED') && (
+          <button onClick={(e) => handleResendPin(e, item.id)} disabled={resendingPin === item.id}
+            className={`${btnCls} text-blue-500 hover:bg-blue-50`} title="Reenviar link">
+            {resendingPin === item.id ? <Loader2 className={`${sz} animate-spin`} /> : <Send className={sz} />}
+          </button>
+        )}
+        {(st === 'DRAFT' || st === 'REJECTED') && (
+          <button onClick={(e) => { e?.stopPropagation(); onViewConsent(item.id); }}
+            className={`${btnCls} text-amber-500 hover:bg-amber-50`} title="Revisar">
+            <RotateCcw className={sz} />
+          </button>
+        )}
+        <button onClick={(e) => { e?.stopPropagation(); onViewConsent(item.id); }}
+          className={`${btnCls} text-brand-navy hover:bg-brand-navy/5`} title="Detalhes">
+          <Eye className={sz} />
+        </button>
+        <button onClick={(e) => handleDownload(e, item.id)}
+          className={`${btnCls} text-slate-400 hover:bg-slate-100`} title="Download PDF">
+          <Download className={sz} />
+        </button>
+      </div>
+    );
+  };
 
   useEffect(() => {
     const fetchDetail = async () => {
@@ -127,8 +184,8 @@ export default function PatientFolder({ patient, onClose, onNewTcle, onViewConse
                         </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
+                        <ActionButtons item={consent} />
                         {getStatusBadge(consent.status)}
-                        <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-brand-navy transition-colors" />
                       </div>
                     </div>
                   ))}
