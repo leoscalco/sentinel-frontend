@@ -17,6 +17,9 @@ export default function SignaturePortal() {
   const [signing, setSigning] = useState(false);
   const [success, setSuccess] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [stepConfirmed, setStepConfirmed] = useState(false);
+  const [startTime] = useState(Date.now());
 
   const handleDownloadPdf = async () => {
     setDownloadingPdf(true);
@@ -53,13 +56,18 @@ export default function SignaturePortal() {
   }, [id, navigate]);
 
   useEffect(() => {
-    if (timeLeft > 0 && consent && !loading) {
+    if (timeLeft > 0 && consent && !loading && currentStep === (consent?.clauses?.length || 0)) {
       const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
       return () => clearTimeout(timer);
     } else if (timeLeft === 0) {
       setCanSign(true);
     }
-  }, [timeLeft, consent, loading]);
+  }, [timeLeft, consent, loading, currentStep]);
+
+  // Reset confirmation when moving to a new step
+  useEffect(() => {
+    setStepConfirmed(false);
+  }, [currentStep]);
 
   const fetchConsent = async (token) => {
     try {
@@ -88,7 +96,13 @@ export default function SignaturePortal() {
     setSigning(true);
     
     const signatureData = sigPad.current.toDataURL(); 
-    const evidence = captureEvidence();
+    
+    // Add total time to evidence
+    const totalTimeSpent = (Date.now() - startTime) / 1000;
+    const evidence = {
+        ...captureEvidence(),
+        time_on_page: totalTimeSpent
+    };
 
     try {
       await api.post(`/consents/${id}/sign/patient`, {
@@ -169,83 +183,120 @@ export default function SignaturePortal() {
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto p-6 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <main className="max-w-2xl mx-auto p-6 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 mb-24">
         
         {/* Info Card */}
-        <div className="bg-white rounded-[1.5rem] shadow-sm border border-slate-100 p-6">
-            <h1 className="text-xl font-black mb-1 text-brand-navy">{consent.procedure_name}</h1>
+        <div className="bg-white rounded-[1.5rem] shadow-sm border border-slate-100 p-6 relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1 bg-slate-100">
+                <div 
+                    className="h-full bg-brand-navy transition-all duration-300" 
+                    style={{ width: `${(currentStep / (consent.clauses?.length || 1)) * 100}%` }}
+                />
+            </div>
+            <h1 className="text-xl font-black mb-1 text-brand-navy mt-2">{consent.procedure_name}</h1>
             <p className="text-sm text-slate-500 mb-4">Dr(a). {consent.doctor.name} • CRM {consent.doctor.crm}</p>
-            
-            <div className="space-y-4">
-                <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100">
-                    <h3 className="text-xs font-black text-amber-800 mb-1 flex items-center gap-2 uppercase tracking-wider">
-                        <AlertCircle className="w-4 h-4" /> Importante
+        </div>
+
+        {/* Contract Content - Paginated */}
+        {currentStep < (consent.clauses?.length || 0) ? (
+            <div className="bg-white rounded-[1.5rem] shadow-sm border border-slate-100 p-6 space-y-6">
+                 <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                    <h3 className="font-black text-brand-navy uppercase tracking-wide text-sm">
+                        {consent.clauses[currentStep].title || consent.clauses[currentStep].category}
                     </h3>
-                    <p className="text-sm text-amber-900 leading-relaxed">
-                        Este procedimento possui riscos específicos. Ao assinar, você confirma que leu os termos abaixo e entendeu as explicações médicas.
-                    </p>
+                    <span className="text-[10px] font-black tracking-widest text-slate-400 uppercase bg-slate-100 px-3 py-1 rounded-full">
+                        Passo {currentStep + 1} de {consent.clauses.length}
+                    </span>
+                 </div>
+                 <div className="prose prose-sm prose-slate text-slate-600 text-justify leading-relaxed">
+                    <p>{consent.clauses[currentStep].template_text || consent.clauses[currentStep].text}</p>
+                 </div>
+                 
+                 <div className="pt-4 border-t border-slate-100">
+                     <label className="flex items-start gap-4 p-4 rounded-xl border border-slate-200 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors">
+                         <input 
+                            type="checkbox" 
+                            checked={stepConfirmed}
+                            onChange={(e) => setStepConfirmed(e.target.checked)}
+                            className="mt-1 w-5 h-5 rounded text-brand-navy focus:ring-brand-navy border-slate-300"
+                         />
+                         <span className="text-sm font-bold text-slate-700">
+                             Confirmo que li e compreendi as informações deste item.
+                         </span>
+                     </label>
+                 </div>
+            </div>
+        ) : (
+            /* Sign Section */
+            <div className="bg-white rounded-[1.5rem] shadow-lg border border-slate-100 p-6 ring-1 ring-brand-navy/5">
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-black text-brand-navy uppercase tracking-wide text-sm">Sua Assinatura</h3>
+                    {!canSign && (
+                        <span className="text-[10px] font-black tracking-widest text-brand-navy flex items-center gap-1.5 bg-brand-champagne/30 px-3 py-1.5 rounded-full animate-pulse uppercase">
+                            <Clock className="w-3 h-3" /> Processando {timeLeft}s
+                        </span>
+                    )}
+                </div>
+                
+                <SignatureCanvas ref={sigPad} disabled={!canSign} />
+                
+                <div className="mt-3 flex items-center justify-between text-xs text-slate-400">
+                     <span className="font-mono text-[11px]">IP Seguro: {metadata.ip || 'Detectando...'}</span>
+                     <button onClick={() => sigPad.current.clear()} className="text-brand-navy font-bold hover:underline text-xs uppercase tracking-wide">Limpar</button>
                 </div>
             </div>
-        </div>
-
-        {/* Contract Content */}
-        <div className="bg-white rounded-[1.5rem] shadow-sm border border-slate-100 p-6 space-y-4">
-             <h3 className="font-black text-brand-navy border-b border-slate-100 pb-3 uppercase tracking-wide text-sm">Termos do Procedimento</h3>
-             <div className="prose prose-sm prose-slate text-slate-600 max-h-80 overflow-y-auto p-5 bg-slate-50 rounded-2xl text-justify border border-slate-100">
-                {consent.clauses && consent.clauses.length > 0 ? (
-                    consent.clauses.map((clause, idx) => (
-                        <div key={idx} className="mb-4 last:mb-0">
-                            <strong className="block text-brand-navy mb-1 text-[10px] uppercase tracking-widest">{clause.title || clause.category}</strong>
-                            <p className="text-sm leading-relaxed">{clause.template_text || clause.text}</p>
-                        </div>
-                    ))
-                ) : (
-                    <p className="text-slate-400 italic">Nenhum termo disponível para visualização.</p>
-                )}
-             </div>
-        </div>
-
-        {/* Sign Section */}
-        <div className="bg-white rounded-[1.5rem] shadow-lg border border-slate-100 p-6 ring-1 ring-brand-navy/5">
-            <div className="flex items-center justify-between mb-4">
-                <h3 className="font-black text-brand-navy uppercase tracking-wide text-sm">Sua Assinatura</h3>
-                {!canSign && (
-                    <span className="text-[10px] font-black tracking-widest text-brand-navy flex items-center gap-1.5 bg-brand-champagne/30 px-3 py-1.5 rounded-full animate-pulse uppercase">
-                        <Clock className="w-3 h-3" /> Leia por {timeLeft}s
-                    </span>
-                )}
-            </div>
-            
-            <SignatureCanvas ref={sigPad} />
-            
-            <div className="mt-3 flex items-center justify-between text-xs text-slate-400">
-                 <span className="font-mono text-[11px]">IP Seguro: {metadata.ip || 'Detectando...'}</span>
-                 <button onClick={() => sigPad.current.clear()} className="text-brand-navy font-bold hover:underline text-xs uppercase tracking-wide">Limpar</button>
-            </div>
-
-            <button
-                onClick={handleSign}
-                disabled={!canSign || signing}
-                className={`w-full mt-6 py-4 rounded-2xl font-black text-sm tracking-wide uppercase transition-all flex items-center justify-center gap-2 relative overflow-hidden
-                    ${!canSign || signing 
-                        ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
-                        : 'bg-brand-navy text-brand-champagne shadow-lg shadow-brand-navy/20 hover:bg-brand-navy/90 active:scale-[0.98]'
-                    }`}
-            >
-                {signing ? (
-                    <span className="flex items-center gap-2">
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                        Registrando na Blockchain...
-                    </span>
-                ) : (
-                    <>
-                        <FileSignature className="w-5 h-5" />
-                        Assinar Digitalmente
-                    </>
-                )}
-            </button>
-        </div>
+        )}
       </main>
+
+      {/* Fixed Bottom Bar */}
+      <div className="fixed bottom-0 left-0 w-full bg-white border-t border-slate-200 p-4 md:px-8 flex justify-center shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-20">
+          <div className="w-full max-w-2xl flex gap-3">
+              {currentStep > 0 && currentStep < (consent.clauses?.length || 0) && (
+                  <button
+                      onClick={() => setCurrentStep(prev => prev - 1)}
+                      className="px-6 py-4 rounded-2xl font-black text-sm tracking-wide uppercase transition-all bg-slate-100 text-slate-500 hover:bg-slate-200"
+                  >
+                      Voltar
+                  </button>
+              )}
+              
+              {currentStep < (consent.clauses?.length || 0) ? (
+                  <button
+                      onClick={() => setCurrentStep(prev => prev + 1)}
+                      disabled={!stepConfirmed}
+                      className={`flex-1 py-4 rounded-2xl font-black text-sm tracking-wide uppercase transition-all flex items-center justify-center gap-2
+                          ${!stepConfirmed 
+                              ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
+                              : 'bg-brand-navy text-brand-champagne shadow-lg shadow-brand-navy/20 hover:bg-brand-navy/90 active:scale-[0.98]'
+                          }`}
+                  >
+                      Avançar
+                  </button>
+              ) : (
+                  <button
+                      onClick={handleSign}
+                      disabled={!canSign || signing}
+                      className={`flex-1 py-4 rounded-2xl font-black text-sm tracking-wide uppercase transition-all flex items-center justify-center gap-2 relative overflow-hidden
+                          ${!canSign || signing 
+                              ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
+                              : 'bg-brand-navy text-brand-champagne shadow-lg shadow-brand-navy/20 hover:bg-brand-navy/90 active:scale-[0.98]'
+                          }`}
+                  >
+                      {signing ? (
+                          <span className="flex items-center gap-2">
+                              <Loader2 className="w-5 h-5 animate-spin" />
+                              Registrando...
+                          </span>
+                      ) : (
+                          <>
+                              <FileSignature className="w-5 h-5" />
+                              Assinar Digitalmente
+                          </>
+                      )}
+                  </button>
+              )}
+          </div>
+      </div>
     </div>
   );
 }

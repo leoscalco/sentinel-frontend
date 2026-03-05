@@ -4,46 +4,21 @@ import { useParams } from 'react-router-dom';
 import { FileText, ShieldCheck, Activity, Clock, CheckCircle, XCircle, Fingerprint, Loader2, Download, User, Stethoscope, CalendarDays, Timer, Globe, Monitor, Lock, Zap, Send, ShieldAlert } from 'lucide-react';
 import api from '../services/api';
 
-export default function ConsentView() {
-  const { id } = useParams();
+export default function SharedAuditView() {
+  const { token } = useParams();
   const [consent, setConsent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
-  const [verifying, setVerifying] = useState(false);
   const [verification, setVerification] = useState(null);
-
-  // Sharing state
-  const [sharing, setSharing] = useState(false);
-  const [shareToken, setShareToken] = useState(null);
-  const [showShareModal, setShowShareModal] = useState(false);
-
-  const handleShare = async () => {
-    setSharing(true);
-    try {
-      const res = await api.post(`/consents/${id}/share`);
-      setShareToken(res.data.share_token);
-    } catch (err) {
-      console.error(err);
-      alert('Erro ao gerar link de compartilhamento.');
-    } finally {
-      setSharing(false);
-    }
-  };
-
-  const copyShareLink = () => {
-    const link = `${import.meta.env.VITE_PUBLIC_URL || window.location.origin}/shared-audit/${shareToken}`;
-    navigator.clipboard.writeText(link);
-    setShowShareModal(false);
-  };
 
   const handleDownloadPdf = async () => {
     setDownloadingPdf(true);
     try {
-      const res = await api.post(`/consents/${id}/pdf`, {}, { responseType: 'blob' });
+      const res = await api.post(`/public/consents/${consent.id}/pdf`, {}, { responseType: 'blob' });
       const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `TCLE_${id}.pdf`);
+      link.setAttribute('download', `TCLE_${consent.id}.pdf`);
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -57,12 +32,12 @@ export default function ConsentView() {
   };
 
   useEffect(() => {
-    fetchConsent();
-  }, [id]);
+    fetchSharedAudit();
+  }, [token]);
 
-  const fetchConsent = async () => {
+  const fetchSharedAudit = async () => {
     try {
-      const res = await api.get(`/consents/${id}`);
+      const res = await api.get(`/public/audit/${token}`);
       setConsent(res.data);
     } catch (err) {
       console.error(err);
@@ -133,13 +108,6 @@ export default function ConsentView() {
             >
                 {downloadingPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
                 Baixar PDF
-            </button>
-            <button
-                onClick={() => setShowShareModal(true)}
-                className="px-5 py-2.5 bg-brand-navy border border-brand-champagne/20 text-brand-champagne rounded-xl text-xs font-black tracking-widest uppercase flex items-center gap-2 hover:bg-brand-navy/80 transition-colors shadow-sm"
-            >
-                <Globe className="w-4 h-4" />
-                Compartilhar
             </button>
             <span className={`px-4 py-2.5 rounded-xl font-black text-[10px] tracking-widest uppercase border flex items-center gap-2 ${statusInfo.bg} ${statusInfo.text_color} ${statusInfo.border}`}>
                 <span className={`w-2 h-2 rounded-full ${statusInfo.dot}`}></span>
@@ -307,26 +275,14 @@ export default function ConsentView() {
                 </div>
             </div>
 
-            {/* ── Botão de Verificação ── */}
+            {/* ── Botão de Verificação (Desabilitado no Link Público) ── */}
             <div className="mt-6">
                 <button
-                    onClick={async () => {
-                        setVerifying(true);
-                        try {
-                            const res = await api.get(`/consents/${id}/verify`);
-                            setVerification(res.data);
-                        } catch (err) {
-                            console.error(err);
-                            alert('Erro ao verificar integridade.');
-                        } finally {
-                            setVerifying(false);
-                        }
-                    }}
-                    disabled={verifying}
-                    className="w-full py-4 bg-brand-navy text-brand-champagne rounded-2xl font-black text-sm tracking-widest uppercase flex items-center justify-center gap-3 hover:bg-brand-navy/90 transition-colors disabled:opacity-50 shadow-lg shadow-brand-navy/10"
+                    disabled
+                    className="w-full py-4 bg-slate-200 text-slate-400 rounded-2xl font-black text-sm tracking-widest uppercase flex items-center justify-center gap-3 cursor-not-allowed shadow-sm"
                 >
-                    {verifying ? <Loader2 className="w-5 h-5 animate-spin" /> : <ShieldAlert className="w-5 h-5" />}
-                    Verificar Integridade do Documento
+                    <ShieldAlert className="w-5 h-5" />
+                    Verificação Completa (Acesso Restrito)
                 </button>
             </div>
 
@@ -569,53 +525,6 @@ export default function ConsentView() {
         </div>
 
       </main>
-
-      {/* ═══ SHARE MODAL ═══ */}
-      {showShareModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand-navy/80 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl animate-in fade-in zoom-in-95 duration-200">
-            <h3 className="text-lg font-black text-brand-navy mb-2 flex items-center gap-2 uppercase tracking-wide">
-              <ShieldAlert className="w-5 h-5 text-amber-500" />
-              Compartilhar Auditoria
-            </h3>
-            <p className="text-sm text-slate-600 mb-6 leading-relaxed">
-              Ao gerar este link, os dados de auditoria e conformidade deste paciente ficarão acessíveis publicamente para quem possuir o link gerado.
-            </p>
-            
-            {shareToken ? (
-              <div className="space-y-4">
-                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-3">
-                  <code className="text-xs text-brand-navy font-mono truncate">
-                    {`${import.meta.env.VITE_PUBLIC_URL || window.location.origin}/shared-audit/${shareToken}`}
-                  </code>
-                </div>
-                <button
-                  onClick={copyShareLink}
-                  className="w-full py-3 bg-brand-navy text-brand-champagne rounded-xl font-black text-xs uppercase tracking-widest hover:bg-brand-navy/90"
-                >
-                  Copiar Link
-                </button>
-              </div>
-            ) : (
-              <div className="flex gap-3 mt-4">
-                <button
-                  onClick={() => setShowShareModal(false)}
-                  className="flex-1 py-3 px-4 rounded-xl font-black text-xs uppercase tracking-widest text-slate-500 bg-slate-100 hover:bg-slate-200"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleShare}
-                  disabled={sharing}
-                  className="flex-1 py-3 px-4 bg-brand-navy text-brand-champagne rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-brand-navy/90 disabled:opacity-50"
-                >
-                  {sharing ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Gerar Link'}
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
     </div>
   );

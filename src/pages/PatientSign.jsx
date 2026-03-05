@@ -24,9 +24,8 @@ export default function PatientSign() {
       const res = await api.get(`/consents/${id}/basic-info`);
       setBasicInfo(res.data);
       if (res.data.status === 'SIGNED') {
-          // Already signed — redirect to audit page
-          navigate(`/audit/${id}`, { replace: true });
-          return;
+          // Document already signed, we can let them proceed to the portal
+          // where they will see the success state
       }
     } catch (err) {
       setError('Documento não encontrado ou indisponível.');
@@ -137,7 +136,7 @@ export default function PatientSign() {
                             maxLength={4}
                             value={pin}
                             onChange={(e) => setPin(e.target.value.replace(/[^0-9]/g, ''))}
-                            disabled={verifying || basicInfo?.status === 'SIGNED'}
+                            disabled={verifying}
                             className="w-full text-center text-3xl font-black tracking-[1em] indent-[1em] py-5 bg-white border-[2.5px] border-slate-200 rounded-2xl focus:border-brand-navy focus:ring-4 focus:ring-brand-champagne/30 transition-all outline-none text-brand-navy placeholder:text-slate-200"
                             placeholder="    "
                         />
@@ -145,7 +144,7 @@ export default function PatientSign() {
 
                     <button
                         type="submit"
-                        disabled={pin.length !== 4 || verifying || basicInfo?.status === 'SIGNED'}
+                        disabled={pin.length !== 4 || verifying}
                         className="w-full bg-brand-navy hover:bg-brand-navy/90 text-brand-champagne font-black tracking-widest uppercase text-sm py-4 rounded-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-brand-navy/20"
                     >
                         {verifying ? (

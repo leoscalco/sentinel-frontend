@@ -195,7 +195,125 @@ export default function Dashboard() {
     <MainLayout title="PAINEL MÉDICO" subtitle="UNIDADE SÃO PAULO" showNewTcle={true} fullWidth={true}>
       <div className="flex flex-col gap-6 pb-6">
         
-        {/* ═══ TOP SECTION: Metrics & Patients ═══ */}
+        {/* ═══ TOP SECTION: CALENDAR ═══ */}
+        <section className="flex flex-col bg-slate-50/80 p-6 rounded-[32px] border border-slate-200 shadow-sm animate-in fade-in slide-in-from-bottom-6 duration-700 w-full shrink-0">
+          <div className="flex items-center justify-between mb-6 shrink-0 z-20">
+            <div className="flex items-center gap-3">
+              <CalendarDays className="w-5 h-5 text-brand-navy" />
+              <h2 className="text-sm font-black tracking-widest text-brand-navy uppercase">Calendário de TCLEs</h2>
+            </div>
+            <div className="flex rounded-xl overflow-hidden border-2 border-brand-navy">
+              <button onClick={() => setCalendarRange('week')}
+                className={`px-6 py-2 text-xs font-black tracking-widest uppercase transition-all ${calendarRange === 'week' ? 'bg-brand-navy text-brand-champagne' : 'bg-white text-brand-navy hover:bg-brand-navy/5'}`}
+              >Semana</button>
+              <button onClick={() => setCalendarRange('month')}
+                className={`px-6 py-2 text-xs font-black tracking-widest uppercase transition-all ${calendarRange === 'month' ? 'bg-brand-navy text-brand-champagne' : 'bg-white text-brand-navy hover:bg-brand-navy/5'}`}
+              >Mês</button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 grid-rows-1 relative min-h-[400px] w-full items-stretch">
+            {/* ═══ HEATMAP ═══ */}
+            <div className={`col-start-1 row-start-1 bg-white rounded-2xl p-4 sm:p-6 border-2 border-slate-100 shadow-sm overflow-hidden flex flex-col justify-center transition-opacity duration-300 w-full h-full ${calendarRange === 'month' ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'}`}>
+              <div className="flex items-center gap-2 mb-5">
+                <span className="text-[10px] font-black tracking-widest text-brand-navy uppercase">Atividade nos últimos 6 meses</span>
+              </div>
+              <div className="flex gap-2 sm:gap-4 justify-center w-full px-2">
+                {/* Day labels */}
+                <div className="flex flex-col gap-1 sm:gap-1.5 shrink-0">
+                  {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((d, i) => (
+                    <div key={i} className="flex-1 flex items-center justify-end pr-1 min-h-[14px] sm:min-h-[18px]">
+                      <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 leading-none">{d}</span>
+                    </div>
+                  ))}
+                </div>
+                {/* Grid */}
+                <div className="flex-1 flex gap-1 sm:gap-1.5 overflow-x-auto pb-2 custom-scrollbar items-start">
+                  {heatmapData.weeks.map((week, wi) => (
+                    <div key={wi} className="flex flex-col gap-1 sm:gap-1.5 flex-1 min-w-0">
+                      {week.map((day, di) => (
+                        <div key={di} className="relative group w-full aspect-square shrink-0">
+                          <div
+                            onClick={() => handleHeatmapDayClick(day)}
+                            className={`w-full h-full rounded-[3px] sm:rounded-[4px] transition-all ${
+                              day.isFuture ? 'bg-transparent' : getHeatmapColor(day.count, heatmapData.maxCount)
+                            } ${day.count > 0 && !day.isFuture ? 'hover:ring-2 hover:ring-brand-navy/40 cursor-pointer hover:scale-110 relative z-10' : ''}`}
+                          />
+                          {!day.isFuture && (
+                            <div className="absolute z-30 bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2.5 py-1 bg-brand-navy text-white text-[9px] font-bold rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity shadow-lg">
+                              {day.count} TCLE{day.count !== 1 ? 's' : ''} • {new Date(day.date + 'T12:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {/* Legend */}
+              <div className="flex items-center gap-2 mt-5 justify-end mt-auto">
+                <span className="text-[9px] font-bold text-slate-400">Menos</span>
+                {['bg-slate-100', 'bg-brand-champagne/40', 'bg-brand-champagne/70', 'bg-brand-champagne', 'bg-brand-navy'].map((c, i) => (
+                  <div key={i} className={`w-[14px] h-[14px] rounded-[3px] ${c}`} />
+                ))}
+                <span className="text-[9px] font-bold text-slate-400">Mais</span>
+              </div>
+            </div>
+
+            {/* ═══ GOOGLE CALENDAR WEEK VIEW ═══ */}
+            <div className={`col-start-1 row-start-1 bg-white rounded-2xl p-4 sm:p-6 border-2 border-slate-100 shadow-sm flex flex-col transition-opacity duration-300 w-full h-full ${calendarRange === 'week' ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'}`}>
+              {loadingCalendar ? (
+                <div className="flex items-center justify-center p-16 text-slate-400 h-full"><Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando...</div>
+              ) : (
+                <div className="grid grid-cols-7 gap-1 sm:gap-2 h-full min-h-0">
+                  {Array.from({ length: 7 }).map((_, i) => {
+                    const curr = new Date();
+                    const dayDate = new Date(curr.setDate(curr.getDate() - 6 + i));
+                    const dateKey = dayDate.toISOString().split('T')[0];
+                    const items = calendarGrouped[dateKey] || [];
+                    const isToday = dayDate.toDateString() === new Date().toDateString();
+
+                    return (
+                      <div key={i} className={`flex flex-col border-r border-slate-100 last:border-0 px-1 sm:px-2 min-h-0 ${isToday ? 'bg-slate-50/50 rounded-xl' : ''}`}>
+                        <div className="flex flex-col items-center mb-3 shrink-0 pt-2">
+                          <span className={`text-[9px] sm:text-[10px] font-bold uppercase tracking-wider ${isToday ? 'text-brand-navy' : 'text-slate-400'}`}>
+                            {dayDate.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '')}
+                          </span>
+                          <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-black mt-1 ${isToday ? 'bg-brand-navy text-white shadow-md' : 'text-slate-700'}`}>
+                            {dayDate.getDate()}
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-2 pb-2 pr-[2px] flex-1 overflow-y-auto custom-scrollbar min-h-0">
+                          {items.map(item => (
+                            <div key={item.id} onClick={() => navigate(`/audit/${item.id}`)}
+                              className="p-2 sm:p-2.5 rounded-xl border border-slate-100 hover:border-brand-champagne hover:shadow-sm transition-all cursor-pointer group flex flex-col gap-1.5 bg-white shadow-sm hover:-translate-y-0.5"
+                            >
+                              <div className="flex items-start justify-between min-w-0">
+                                <span className="text-[10px] sm:text-xs font-black text-slate-700 truncate min-w-0 pr-1 group-hover:text-brand-navy transition-colors">{item.procedure_name}</span>
+                              </div>
+                              <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 truncate w-full flex items-center gap-1">
+                                <User className="w-2.5 h-2.5 shrink-0" />
+                                <span className="truncate">{item.patient_name}</span>
+                              </p>
+                              <div className="mt-0.5 flex items-center justify-between">
+                                {getStatusBadge(item.status)}
+                                <div className="opacity-0 group-hover:opacity-100 transition-opacity ml-1">
+                                  <ActionButtons item={item} compact={true} />
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* ═══ BOTTOM SECTION: Metrics & Patients ═══ */}
         <div className="flex flex-col xl:flex-row gap-6 shrink-0 xl:h-[380px]">
           
           {/* Left Column: Metrics 2x2 Grid */}
@@ -363,125 +481,6 @@ export default function Dashboard() {
             </div>
           </section>
         </div>
-
-        {/* ═══ BOTTOM SECTION: CALENDAR ═══ */}
-        <section className="flex flex-col bg-slate-50/80 p-6 rounded-[32px] border border-slate-200 shadow-sm animate-in fade-in slide-in-from-bottom-6 duration-700">
-          <div className="flex items-center justify-between mb-6 shrink-0">
-            <div className="flex items-center gap-3">
-              <CalendarDays className="w-5 h-5 text-brand-navy" />
-              <h2 className="text-sm font-black tracking-widest text-brand-navy uppercase">Calendário de TCLEs</h2>
-            </div>
-            <div className="flex rounded-xl overflow-hidden border-2 border-brand-navy">
-              <button onClick={() => setCalendarRange('week')}
-                className={`px-6 py-2 text-xs font-black tracking-widest uppercase transition-all ${calendarRange === 'week' ? 'bg-brand-navy text-brand-champagne' : 'bg-white text-brand-navy hover:bg-brand-navy/5'}`}
-              >Semana</button>
-              <button onClick={() => setCalendarRange('month')}
-                className={`px-6 py-2 text-xs font-black tracking-widest uppercase transition-all ${calendarRange === 'month' ? 'bg-brand-navy text-brand-champagne' : 'bg-white text-brand-navy hover:bg-brand-navy/5'}`}
-              >Mês</button>
-            </div>
-          </div>
-
-          {calendarRange === 'month' ? (
-            /* ═══ HEATMAP ═══ */
-            <div className="bg-white rounded-2xl p-6 border-2 border-slate-100 shadow-sm flex-1 overflow-hidden flex flex-col justify-center">
-              <div className="flex items-center gap-2 mb-5">
-                <span className="text-[10px] font-black tracking-widest text-brand-navy uppercase">Atividade nos últimos 6 meses</span>
-              </div>
-              <div className="flex gap-1 sm:gap-1.5 w-full">
-                {/* Day labels */}
-                <div className="w-6 sm:w-8 shrink-0 flex flex-col gap-1 sm:gap-1.5">
-                  {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((d, i) => (
-                    <div key={i} className="w-full aspect-square flex items-center justify-end pr-1 sm:pr-2">
-                      <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 leading-none">{d}</span>
-                    </div>
-                  ))}
-                </div>
-                {/* Grid */}
-                <div className="flex-1 flex gap-1 sm:gap-1.5 min-w-0">
-                  {heatmapData.weeks.map((week, wi) => (
-                    <div key={wi} className="flex-1 flex flex-col gap-1 sm:gap-1.5 min-w-0">
-                      {week.map((day, di) => (
-                        <div key={di} className="relative group w-full aspect-square">
-                          <div
-                            onClick={() => handleHeatmapDayClick(day)}
-                            className={`w-full h-full rounded-[3px] sm:rounded-[4px] transition-all ${
-                              day.isFuture ? 'bg-transparent' : getHeatmapColor(day.count, heatmapData.maxCount)
-                            } ${day.count > 0 && !day.isFuture ? 'hover:ring-2 hover:ring-brand-navy/40 cursor-pointer hover:scale-110 relative z-10' : ''}`}
-                          />
-                          {!day.isFuture && (
-                            <div className="absolute z-30 bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2.5 py-1 bg-brand-navy text-white text-[9px] font-bold rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity shadow-lg">
-                              {day.count} TCLE{day.count !== 1 ? 's' : ''} • {new Date(day.date + 'T12:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              </div>
-              {/* Legend */}
-              <div className="flex items-center gap-2 mt-5 justify-end">
-                <span className="text-[9px] font-bold text-slate-400">Menos</span>
-                {['bg-slate-100', 'bg-brand-champagne/40', 'bg-brand-champagne/70', 'bg-brand-champagne', 'bg-brand-navy'].map((c, i) => (
-                  <div key={i} className={`w-[14px] h-[14px] rounded-[3px] ${c}`} />
-                ))}
-                <span className="text-[9px] font-bold text-slate-400">Mais</span>
-              </div>
-            </div>
-          ) : (
-            /* ═══ GOOGLE CALENDAR WEEK VIEW ═══ */
-            loadingCalendar ? (
-              <div className="flex items-center justify-center p-16 text-slate-400"><Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando...</div>
-            ) : (
-              <div className="bg-white rounded-2xl p-4 sm:p-6 border-2 border-slate-100 shadow-sm flex flex-col">
-                <div className="grid grid-cols-7 gap-1 sm:gap-2">
-                  {Array.from({ length: 7 }).map((_, i) => {
-                    const curr = new Date();
-                    const first = curr.getDate() - curr.getDay();
-                    const dayDate = new Date(curr.setDate(first + i));
-                    const dateKey = dayDate.toISOString().split('T')[0];
-                    const items = calendarGrouped[dateKey] || [];
-                    const isToday = dayDate.toDateString() === new Date().toDateString();
-
-                    return (
-                      <div key={i} className={`flex flex-col border-r border-slate-100 last:border-0 px-1 sm:px-2 ${isToday ? 'bg-slate-50/50 rounded-xl' : ''}`}>
-                        <div className="flex flex-col items-center mb-3 shrink-0 pt-2">
-                          <span className={`text-[9px] sm:text-[10px] font-bold uppercase tracking-wider ${isToday ? 'text-brand-navy' : 'text-slate-400'}`}>
-                            {dayDate.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '')}
-                          </span>
-                          <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-black mt-1 ${isToday ? 'bg-brand-navy text-white shadow-md' : 'text-slate-700'}`}>
-                            {dayDate.getDate()}
-                          </div>
-                        </div>
-                        <div className="flex flex-col gap-2 pb-2 pr-[2px]">
-                          {items.map(item => (
-                            <div key={item.id} onClick={() => navigate(`/audit/${item.id}`)}
-                              className="p-2 sm:p-2.5 rounded-xl border border-slate-100 hover:border-brand-champagne hover:shadow-sm transition-all cursor-pointer group flex flex-col gap-1.5 bg-white shadow-sm hover:-translate-y-0.5"
-                            >
-                              <div className="flex items-start justify-between min-w-0">
-                                <span className="text-[10px] sm:text-xs font-black text-slate-700 truncate min-w-0 pr-1 group-hover:text-brand-navy transition-colors">{item.procedure_name}</span>
-                              </div>
-                              <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 truncate w-full flex items-center gap-1">
-                                <User className="w-2.5 h-2.5 shrink-0" />
-                                <span className="truncate">{item.patient_name}</span>
-                              </p>
-                              <div className="mt-0.5 flex items-center justify-between">
-                                {getStatusBadge(item.status)}
-                                <div className="opacity-0 group-hover:opacity-100 transition-opacity ml-1">
-                                  <ActionButtons item={item} compact={true} />
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )
-          )}
-        </section>
       </div>
 
       {/* ═══ PATIENT FOLDER MODAL ═══ */}

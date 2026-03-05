@@ -14,6 +14,7 @@ import Register from './pages/Register';
 import Onboarding from './pages/Onboarding';
 import Profile from './pages/Profile';
 import NewConsent from './pages/NewConsent';
+import SharedAuditView from './pages/SharedAuditView';
 
 function App() {
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "mock-client-id.apps.googleusercontent.com";
@@ -31,9 +32,17 @@ function App() {
             {/* Signature & Audit (Kept Public for Patients/Auditors) */}
             <Route path="/sign/:id" element={<PatientSign />} />
             <Route path="/verify/:id" element={<SignaturePortal />} />
-            <Route path="/audit/:id" element={<ConsentView />} />
+            <Route path="/shared-audit/:token" element={<SharedAuditView />} />
 
             {/* Protected Routes (Doctors Only) */}
+            <Route 
+              path="/audit/:id" 
+              element={
+                <ProtectedRoute>
+                  <ConsentView />
+                </ProtectedRoute>
+              } 
+            />
             <Route 
               path="/onboarding" 
               element={

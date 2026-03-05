@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    .grid-container {
+      display: grid;
+      grid-template-columns: 1fr;
+      grid-template-rows: 1fr;
+      border: 2px solid black;
+    }
+    .grid-child {
+      grid-column: 1 / 2;
+      grid-row: 1 / 2;
+    }
+    .month {
+      border: 1px solid green;
+      /* Month is naturally tall based on width */
+      display: flex;
+    }
+    .box {
+      width: 100%;
+      aspect-ratio: 1/1;
+      background: rgba(0,255,0,0.2);
+    }
+    .week {
+      border: 1px solid red;
+      display: flex;
+      flex-direction: column;
+    }
+    .week-content {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      background: rgba(255,0,0,0.2);
+    }
+  </style>
+</head>
+<body>
+  <div class="grid-container" style="width: 800px;">
+    <div class="grid-child month">
+      <div style="width: 50%;">
+        <div class="box"></div>
+      </div>
+      <div style="width: 50%;">
+        <div class="box"></div>
+      </div>
+    </div>
+    <div class="grid-child week" style="opacity: 0.5;">
+      <div>Header</div>
+      <div class="week-content">
+        Scrollable content<br>Scrollable content<br>Scrollable content<br>
+        Scrollable content<br>Scrollable content<br>Scrollable content<br>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
