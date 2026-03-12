@@ -110,8 +110,27 @@ export default function ReviewConsentModal({ isOpen, onClose, consent, onApprove
                         <p><strong>Documento:</strong> {localConsent.patient?.document_id}</p>
                     </div>
 
-                    {/* Clauses — mirrors .section h2 + template_text */}
-                    {localConsent.clauses && localConsent.clauses.length > 0 ? (
+                    {/* Sections — Prefer generated_sections (LLM output), fallback to clauses */}
+                    {localConsent.generated_sections && localConsent.generated_sections.length > 0 ? (
+                        <div>
+                            {localConsent.generated_sections.map((section, idx) => (
+                                <div key={idx} className="mb-4">
+                                    <h2 
+                                        className="font-bold mt-5 pb-1 mb-2" 
+                                        style={{ fontSize: '13pt', color: '#2c3e50', borderBottom: '1px solid #ccc' }}
+                                    >
+                                        {section.title}
+                                    </h2>
+                                    <div 
+                                        className="text-justify"
+                                        dangerouslySetInnerHTML={{ 
+                                            __html: (section.content || '').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>') 
+                                        }}
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    ) : localConsent.clauses && localConsent.clauses.length > 0 ? (
                         <div>
                             {localConsent.clauses.map((clause, idx) => (
                                 <div key={idx} className="mb-4">

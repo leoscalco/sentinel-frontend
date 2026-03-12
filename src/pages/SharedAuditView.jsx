@@ -454,10 +454,15 @@ export default function SharedAuditView() {
                     
                     <hr className="border-slate-200 my-4"/>
                     
-                    {consent.clauses?.map((c, i) => (
+                    {(consent.generated_sections?.length > 0 ? consent.generated_sections : consent.clauses)?.map((c, i) => (
                         <div key={i} className="mb-4">
                             <strong className="block text-brand-navy mb-1">{i+1}. {c.title || c.category}</strong>
-                            <span className="leading-relaxed">{c.template_text || c.text}</span>
+                            <div 
+                                className="leading-relaxed"
+                                dangerouslySetInnerHTML={{ 
+                                    __html: (c.content || c.template_text || c.text || '').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>') 
+                                }}
+                            />
                         </div>
                     ))}
                 </div>

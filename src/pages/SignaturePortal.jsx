@@ -55,14 +55,19 @@ export default function SignaturePortal() {
     fetchConsent(token);
   }, [id, navigate]);
 
+  // Normalize sections: prefer generated_sections, fallback to clauses
+  const sections = consent?.generated_sections?.length > 0 
+    ? consent.generated_sections.map(s => ({ title: s.title, text: s.content, category: s.pillar }))
+    : (consent?.clauses || []).map(c => ({ title: c.title || c.category, text: c.template_text || c.text, category: c.category }));
+
   useEffect(() => {
-    if (timeLeft > 0 && consent && !loading && currentStep === (consent?.clauses?.length || 0)) {
+    if (timeLeft > 0 && consent && !loading && currentStep === sections.length) {
       const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
       return () => clearTimeout(timer);
     } else if (timeLeft === 0) {
       setCanSign(true);
     }
-  }, [timeLeft, consent, loading, currentStep]);
+  }, [timeLeft, consent, loading, currentStep, sections.length]);
 
   // Reset confirmation when moving to a new step
   useEffect(() => {
@@ -190,7 +195,7 @@ export default function SignaturePortal() {
             <div className="absolute top-0 left-0 w-full h-1 bg-slate-100">
                 <div 
                     className="h-full bg-brand-navy transition-all duration-300" 
-                    style={{ width: `${(currentStep / (consent.clauses?.length || 1)) * 100}%` }}
+                    style={{ width: `${(currentStep / (sections.length || 1)) * 100}%` }}
                 />
             </div>
             <h1 className="text-xl font-black mb-1 text-brand-navy mt-2">{consent.procedure_name}</h1>
@@ -198,19 +203,22 @@ export default function SignaturePortal() {
         </div>
 
         {/* Contract Content - Paginated */}
-        {currentStep < (consent.clauses?.length || 0) ? (
+        {currentStep < sections.length ? (
             <div className="bg-white rounded-[1.5rem] shadow-sm border border-slate-100 p-6 space-y-6">
                  <div className="flex items-center justify-between border-b border-slate-100 pb-4">
                     <h3 className="font-black text-brand-navy uppercase tracking-wide text-sm">
-                        {consent.clauses[currentStep].title || consent.clauses[currentStep].category}
+                        {sections[currentStep].title}
                     </h3>
                     <span className="text-[10px] font-black tracking-widest text-slate-400 uppercase bg-slate-100 px-3 py-1 rounded-full">
-                        Passo {currentStep + 1} de {consent.clauses.length}
+                        Passo {currentStep + 1} de {sections.length}
                     </span>
                  </div>
-                 <div className="prose prose-sm prose-slate text-slate-600 text-justify leading-relaxed">
-                    <p>{consent.clauses[currentStep].template_text || consent.clauses[currentStep].text}</p>
-                 </div>
+                 <div 
+                    className="prose prose-sm prose-slate text-slate-600 text-justify leading-relaxed"
+                    dangerouslySetInnerHTML={{ 
+                        __html: (sections[currentStep].text || '').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>') 
+                    }}
+                 />
                  
                  <div className="pt-4 border-t border-slate-100">
                      <label className="flex items-start gap-4 p-4 rounded-xl border border-slate-200 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors">
@@ -251,7 +259,7 @@ export default function SignaturePortal() {
       {/* Fixed Bottom Bar */}
       <div className="fixed bottom-0 left-0 w-full bg-white border-t border-slate-200 p-4 md:px-8 flex justify-center shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-20">
           <div className="w-full max-w-2xl flex gap-3">
-              {currentStep > 0 && currentStep < (consent.clauses?.length || 0) && (
+              {currentStep > 0 && currentStep < sections.length && (
                   <button
                       onClick={() => setCurrentStep(prev => prev - 1)}
                       className="px-6 py-4 rounded-2xl font-black text-sm tracking-wide uppercase transition-all bg-slate-100 text-slate-500 hover:bg-slate-200"
@@ -260,7 +268,7 @@ export default function SignaturePortal() {
                   </button>
               )}
               
-              {currentStep < (consent.clauses?.length || 0) ? (
+              {currentStep < sections.length ? (
                   <button
                       onClick={() => setCurrentStep(prev => prev + 1)}
                       disabled={!stepConfirmed}
