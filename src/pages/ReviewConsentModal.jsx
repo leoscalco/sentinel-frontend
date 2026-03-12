@@ -19,7 +19,7 @@ export default function ReviewConsentModal({ isOpen, onClose, consent, onApprove
     setLoadingRegen(true);
     try {
         // Construct payload according to GenerateConsentRequest schema
-        const procedureCode = localConsent.clauses?.[0]?.procedure_type || 'unknown'; 
+        const procedureCode = localConsent.procedure_type || localConsent.clauses?.[0]?.procedure_type;
         
         const payload = {
             procedure: procedureCode,

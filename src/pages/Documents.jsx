@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import api from '../services/api';
-import { Search, FileText, CheckCircle, Clock, ChevronDown, Check, AlertTriangle, Loader2, Send, Eye, Download } from 'lucide-react';
+import { Search, FileText, CheckCircle, Clock, ChevronDown, Check, AlertTriangle, Loader2, Send, Eye, Download, ArrowUpDown } from 'lucide-react';
 import ReviewConsentModal from './ReviewConsentModal';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
@@ -17,6 +17,14 @@ export default function Documents() {
   const [resendingPin, setResendingPin] = useState(null);
   const { user } = useAuth();
   const [downloadingPdf, setDownloadingPdf] = useState(null);
+  const [sortOrder, setSortOrder] = useState('desc'); // 'desc' = mais recente primeiro
+
+  const sortedConsents = useMemo(() => {
+    return [...consents].sort((a, b) => {
+      const diff = new Date(a.created_at) - new Date(b.created_at);
+      return sortOrder === 'desc' ? -diff : diff;
+    });
+  }, [consents, sortOrder]);
 
   const handleDownloadPdf = async (e, consentId) => {
     e.stopPropagation();
@@ -172,16 +180,26 @@ export default function Documents() {
               })}
             </div>
 
-            {/* Search */}
-            <div className="relative w-full md:w-80">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input 
-                type="text" 
-                placeholder="Buscar paciente ou procedimento..." 
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-11 pr-4 py-3 rounded-xl border-2 border-slate-100 text-sm font-medium focus:ring-4 focus:ring-brand-50 focus:border-brand-300 outline-none transition-all placeholder-slate-300 text-slate-700 bg-slate-50 focus:bg-white"
-              />
+            {/* Search + Sort */}
+            <div className="flex items-center gap-2 w-full md:w-auto">
+              <div className="relative flex-1 md:w-80">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Buscar paciente ou procedimento..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full pl-11 pr-4 py-3 rounded-xl border-2 border-slate-100 text-sm font-medium focus:ring-4 focus:ring-brand-50 focus:border-brand-300 outline-none transition-all placeholder-slate-300 text-slate-700 bg-slate-50 focus:bg-white"
+                />
+              </div>
+              <button
+                onClick={() => setSortOrder(o => o === 'desc' ? 'asc' : 'desc')}
+                title={sortOrder === 'desc' ? 'Mais recente primeiro' : 'Mais antigo primeiro'}
+                className="flex items-center gap-1.5 px-3 py-3 rounded-xl border-2 border-slate-100 bg-slate-50 hover:bg-slate-100 text-slate-500 text-xs font-bold tracking-wide transition-all shrink-0"
+              >
+                <ArrowUpDown className="w-4 h-4" />
+                {sortOrder === 'desc' ? 'Recente' : 'Antigo'}
+              </button>
             </div>
           </div>
 
@@ -195,7 +213,7 @@ export default function Documents() {
                 </div>
             ) : (
                 <div className="grid grid-cols-1 gap-4">
-                    {consents.map((consent) => (
+                    {sortedConsents.map((consent) => (
                         <div key={consent.id} className="bg-white p-6 rounded-3xl border-2 border-slate-100 hover:border-brand-100 hover:shadow-md transition-all flex justify-between items-center group">
                             <div className="flex items-center gap-5">
                                 <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform ${tabs.find(t => t.id === consent.status)?.bg || 'bg-slate-50'}`}>
@@ -206,7 +224,7 @@ export default function Documents() {
                                     <div className="flex items-center gap-2 text-xs font-bold tracking-wide text-slate-400 uppercase mt-1">
                                         <span className="text-brand-Navy">{consent.procedure_name}</span>
                                         <span>•</span>
-                                        <span>{new Date(consent.created_at).toLocaleDateString()}</span>
+                                        <span>{new Date(consent.created_at).toLocaleDateString('pt-BR')} {new Date(consent.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
                                     </div>
                                 </div>
                             </div>

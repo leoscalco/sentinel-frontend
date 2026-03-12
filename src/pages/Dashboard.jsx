@@ -5,6 +5,7 @@ import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import MainLayout from '../components/layout/MainLayout';
 import PatientFolder from '../components/PatientFolder';
+import ReviewConsentModal from './ReviewConsentModal';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -21,6 +22,9 @@ export default function Dashboard() {
   const [loadingMetrics, setLoadingMetrics] = useState(true);
   const [resendingPin, setResendingPin] = useState(null);
   const [heatmapModal, setHeatmapModal] = useState(null); // { date, items }
+  const [selectedConsent, setSelectedConsent] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [approving, setApproving] = useState(false);
 
   // ── Fetchers ──
   const fetchPatients = useCallback(async () => {
@@ -126,11 +130,37 @@ export default function Dashboard() {
   const handleDownload = async (e, consentId) => {
     e?.stopPropagation();
     try {
-      const response = await api.get(`/consents/${consentId}/pdf`, { responseType: 'blob' });
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const response = await api.post(`/consents/${consentId}/pdf`, {}, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
       const a = document.createElement('a'); a.href = url; a.download = `TCLE_${consentId}.pdf`; a.click();
       window.URL.revokeObjectURL(url);
     } catch { alert("Erro ao baixar PDF"); }
+  };
+
+  const handleReview = async (e, item) => {
+    e?.stopPropagation();
+    try {
+      const res = await api.get(`/consents/${item.id}`);
+      setSelectedConsent(res.data);
+      setIsModalOpen(true);
+    } catch { alert("Erro ao carregar detalhes."); }
+  };
+
+  const handleApprove = async (consentId) => {
+    setApproving(true);
+    try {
+      const res = await api.post(`/consents/${consentId}/sign/doctor`, {});
+      setIsModalOpen(false);
+      fetchCalendar();
+      const pin = res.data.patient_pin;
+      let baseUrl = window.location.origin;
+      if (baseUrl.includes('localhost')) baseUrl = import.meta.env.VITE_PUBLIC_URL || 'https://juan-uncorned-janay.ngrok-free.dev';
+      const signatureUrl = `${baseUrl}/sign/${consentId}`;
+      const phone = '34611716226';
+      const message = `Olá! Aqui está o link para assinar o seu Termo de Consentimento da clínica:\n\n${signatureUrl}\n\nO seu PIN de acesso é: ${pin}`;
+      window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
+    } catch { alert("Erro ao aprovar TCLE"); }
+    finally { setApproving(false); }
   };
 
   // ── Action buttons for a consent item ──
@@ -149,7 +179,7 @@ export default function Dashboard() {
         )}
         {/* Revisar for DRAFT or REJECTED */}
         {(st === 'DRAFT' || st === 'REJECTED') && (
-          <button onClick={(e) => { e?.stopPropagation(); navigate(`/audit/${item.id}`); }}
+          <button onClick={(e) => handleReview(e, item)}
             className={`${btnCls} text-amber-500 hover:bg-amber-50`} title="Revisar">
             <RotateCcw className={sz} />
           </button>
@@ -492,6 +522,14 @@ export default function Dashboard() {
       )}
 
       {/* ═══ HEATMAP DAY MODAL ═══ */}
+      <ReviewConsentModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        consent={selectedConsent}
+        onApprove={handleApprove}
+        approving={approving}
+      />
+
       {heatmapModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setHeatmapModal(null)}>
           <div className="absolute inset-0 bg-brand-navy/40 backdrop-blur-sm" />
